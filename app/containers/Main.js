@@ -3,6 +3,8 @@ import { StyleSheet, View, Image } from 'react-native'
 import { connect } from 'react-redux'
 import { Actions } from 'react-native-router-flux'
 import MapView from 'react-native-maps'
+import axios from 'axios'
+import Polyline from '@mapbox/polyline';
 
 import {
   LocationButtonGroup,
@@ -22,13 +24,13 @@ class Main extends Component {
     searchResultsOpen: false,
     sourceText: 'Work',
     destinationText: '',
+    directions:[]
   }
 
   componentDidMount() {
     navigator.geolocation.getCurrentPosition(
       ({coords}) => {
         const {latitude, longitude} = coords
-
         this.setState({
           position: {
             latitude,
@@ -41,6 +43,65 @@ class Main extends Component {
             longitudeDelta: 0.0421,
           },
         })
+
+        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${latitude},${longitude}&destination=37.710452,-122.476486`;
+
+        /*axios.get(url).then(({data})=>{
+          console.log(data);
+          let directions = [];
+          const { routes } = data;
+          const { legs } = routes[0];
+          const { steps } = legs[0];
+          steps.map((v,k)=>{
+            const start_location = {
+              latitude:v.start_location.lat,
+              longitude:v.start_location.lng
+            }
+            const end_location = {
+              latitude:v.end_location.lat,
+              longitude:v.end_location.lng
+            }
+            directions = [
+              ...directions,
+              start_location,
+              end_location
+            ]
+          })
+        })*/
+
+        axios.get(url).then(({data})=>{
+          const testMap = data.routes[0].legs[0].steps
+          const mapRoute = testMap.map((v,k)=>{
+            const start_location = {
+              latitude:v.start_location.lat,
+              longitude:v.start_location.lng
+            }
+            const end_location = {
+              latitude:v.end_location.lat,
+              longitude:v.end_location.lng
+            }
+
+            return {
+              ...start_location,
+              ...end_location
+            }
+          })
+
+          /*this.setState({
+            directions:mapRoute
+          })*/
+
+          let points = Polyline.decode(data.routes[0].overview_polyline.points);
+          let directions = points.map((point, index) => {
+            return  {
+                latitude : point[0],
+                longitude : point[1]
+            }
+          })
+
+          this.setState({directions})
+        })
+
       },
       (error) => alert(JSON.stringify(error)),
       {enableHighAccuracy: true, timeout: 20000, maximumAge: 1000}
@@ -75,6 +136,12 @@ class Main extends Component {
               fillColor={'#3594BC'}
             />
           )}
+
+          <MapView.Polyline
+            strokeWidth={2}
+            strokeColor={'green'}
+            coordinates={this.state.directions}
+          />
         </MapView>
       </View>
     )
